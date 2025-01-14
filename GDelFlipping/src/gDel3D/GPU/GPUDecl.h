@@ -42,6 +42,7 @@ DAMAGE.
 #pragma once
 
 #include "../CommonTypes.h"
+#include <thrust/device_malloc.h>
 
 ////////////////////////////////////////////////////////////////////// GPU Exact predicates
 
@@ -193,6 +194,10 @@ public:
     bool                    _owned; 
     
     DevVector( ) : _size( 0 ), _capacity( 0 ) {}
+
+    DevVector( T *begin, size_t n) : _ptr(begin, begin + n), _size( n ), _capacity( n ), _owned(false)
+    {
+    }
     
     DevVector( size_t n ) : _size( 0 ), _capacity( 0 )
     {

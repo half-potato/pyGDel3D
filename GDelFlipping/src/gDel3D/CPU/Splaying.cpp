@@ -668,13 +668,13 @@ void Splaying::fixWithStarSplaying(
     PerfTimer timer;
 
     timer.start();
-        if ( output->stats.failVertNum > 0 ) 
-        {
-            makeFailedStarsAndQueue( output->failVertVec );
-            processQue();
-            //checkStarConsistency();
-            starsToTetra();
-        }
+    if ( output->stats.failVertNum > 0 ) 
+    {
+        makeFailedStarsAndQueue( output->failVertVec );
+        processQue();
+        //checkStarConsistency();
+        starsToTetra();
+    }
     timer.stop(); 
 
     // Output

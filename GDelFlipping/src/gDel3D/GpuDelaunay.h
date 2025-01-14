@@ -55,12 +55,11 @@ class GpuDel
 {
 public:
 	GpuDel();
-	GpuDel( const GDelParams& params );
+	GpuDel( const GDelParams params );
     ~GpuDel(); 
     
     void compute( const Point3HVec& input, GDelOutput *output );
 
-private:
     // Execution configuration
     const GDelParams _params; 
     GDelOutput*      _output; 
@@ -116,7 +115,6 @@ private:
     // Timing
     CudaTimer _profTimer; 
 
-private:
     // Memory pool
     IntDVec &poolPopIntDVec();
     IntDVec &poolPeekIntDVec();
@@ -124,6 +122,7 @@ private:
 
     // Helpers
 	void constructInitialTetra();
+    void constructInitialTetraFromPrev(const TetHVec &initTets);
     void markSpecialTets();
     void expandTetraList( int newTetNum );
     void splitTetra();
@@ -148,7 +147,9 @@ private:
     void pushVecTail( DevVector< T > &dataVec, int size, int from, int gap );
 
     // Main
-    void initForFlip( const Point3HVec pointVec ); 
+    void reset( const int num_points );
+    void allocateForFlip( const int num_points );
+    void initForFlip( const Point3HVec pointVec, const TetHVec *initTets = NULL); 
     void splitAndFlip();
     void outputToHost();
     void cleanup(); 

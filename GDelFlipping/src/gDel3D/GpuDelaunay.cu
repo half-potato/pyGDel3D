@@ -57,6 +57,12 @@ DAMAGE.
 const int BlocksPerGrid         = 512;
 const int ThreadsPerBlock       = 256;
 const int PredBlocksPerGrid     = 64;
+const int FlipThreadsPerBlock   = 32;
+
+// const int BlocksPerGrid         = 1024;  // Can go higher depending on your data size
+// const int ThreadsPerBlock       = 1024;  // Maximum threads per block on RTX 3090
+// const int PredBlocksPerGrid    = 256;    // Increased proportionally
+
 const int PredThreadsPerBlock   = PRED_THREADS_PER_BLOCK;
 const int PredTotalThreadNum    = PredBlocksPerGrid * PredThreadsPerBlock;
 
@@ -65,7 +71,7 @@ const int PredTotalThreadNum    = PredBlocksPerGrid * PredThreadsPerBlock;
 ////
 GpuDel::GpuDel() : _params( GDelParams() ), _splaying( _params ) {}
 
-GpuDel::GpuDel( const GDelParams& params ) : _params( params ), _splaying( params ) {}
+GpuDel::GpuDel( const GDelParams params ) : _params( params ), _splaying( params ) {}
 
 GpuDel::~GpuDel()
 {
@@ -83,9 +89,11 @@ void GpuDel::compute( const Point3HVec& pointVec, GDelOutput *output )
     PerfTimer timer; 
 
     timer.start(); 
-        initForFlip( pointVec );
-        splitAndFlip();
-        outputToHost(); 
+    startTiming(); 
+    allocateForFlip(pointVec.size() + 1); // point at infinity
+    initForFlip( pointVec );
+    splitAndFlip();
+    outputToHost(); 
     timer.stop(); 
 
     _output->stats.totalTime = timer.value(); 
@@ -243,6 +251,59 @@ struct Get3Ddist
 	}
 };
 
+void GpuDel::constructInitialTetraFromPrev(const TetHVec &initTets)
+{
+    _tetVec.copyFromHost( initTets );
+    const int curTetNum = _tetVec.size();
+    _tetInfoVec.resize( curTetNum );
+    thrust::fill( _tetInfoVec.begin(), _tetInfoVec.end(), 1 );
+    // Update the number of tets currently stored
+    expandTetraList(curTetNum);
+
+    _infIdx = _pointNum - 1; 
+
+    _pointVec.resize( _pointNum ); 
+    _pointVec[ _infIdx ] = _ptInfty; 
+    _vertFreeVec[ _infIdx ] = 0; 
+
+    _dPredWrapper.init( toKernelPtr( _pointVec ),
+                          _pointNum, 
+                          _params.noSorting ? NULL : toKernelPtr( _orgPointIdx ),
+                          _infIdx, 
+                          PredTotalThreadNum );
+    setPredWrapperConstant( _dPredWrapper );
+    
+    // -------------------------------------------------------
+    // (Re)initialize point location array: each point is located 
+    // inside one of the tets.  We use the first tetrahedron from our
+    // provided TetHVec as an initial guess.
+    // -------------------------------------------------------
+
+    // _vertTetVec.assign( _pointNum, 0 );
+    
+    // // Launch a fast (approximate) kernel to initialize locations:
+    // kerInitPointLocationFast<<< BlocksPerGrid, ThreadsPerBlock >>>(
+    //      toKernelPtr( _vertTetVec ), 
+    //      firstTet,   // use the first tetrahedron as a starting region
+    //      0           // assume its index is 0
+    //      );
+    // CudaCheckError();
+    
+    // // Launch a second pass for exact point location if needed:
+    // kerInitPointLocationExact<<< PredBlocksPerGrid, PredThreadsPerBlock >>>(
+    //      toKernelPtr( _vertTetVec ), 
+    //      firstTet,   // same first tetrahedron 
+    //      0           // index 0
+    //      );
+    // CudaCheckError();
+    _vertVec.resize( _pointNum );
+    thrust::sequence( _vertVec.begin(), _vertVec.end() );
+
+    _vertTetVec.assign( _pointNum, 0 );
+
+    compactBothIfNegative( _vertTetVec, _vertVec );
+}
+
 void GpuDel::constructInitialTetra() 
 {
 	// First, choose two extreme points along the X axis
@@ -340,7 +401,7 @@ void GpuDel::constructInitialTetra()
     _maxTetNum = _tetVec.size(); 
 
     // Locate initial positions of points
-    _vertTetVec.assign( _pointNum, 0 );
+    _vertTetVec.assign( _pointNum, -1 );
 
     kerInitPointLocationFast<<< BlocksPerGrid, ThreadsPerBlock >>>(
         toKernelPtr( _vertTetVec ), 
@@ -605,27 +666,11 @@ void GpuDel::expandTetraList( IntDVec *newVertVec, int tailExtra, IntDVec *tetTo
     // No need to even push them into the free list!
 }
 
-void GpuDel::initForFlip( const Point3HVec pointVec )
-{
-    startTiming(); 
-
-    _pointNum			= pointVec.size() + 1;	// Plus the infinity point
+void GpuDel::allocateForFlip( const int num_points ) {
+    _pointNum			= num_points;	// Plus the infinity point
     const int TetMax    = (int) ( _pointNum * 8.5 );
 
     _pointVec.resize( _pointNum );  // 1 additional slot for the infinity point
-    _pointVec.copyFromHost( pointVec );
-
-	// Find the min and max coordinate value
-    typedef thrust::device_ptr< RealType > RealPtr; 
-	RealPtr coords( ( RealType* ) toKernelPtr( _pointVec ) ); 
-    thrust::pair< RealPtr, RealPtr> ret
-        = thrust::minmax_element( coords, coords + _pointVec.size() * 3 ); 
-
-    _minVal = *ret.first; 
-    _maxVal = *ret.second; 
-
-    if ( _params.verbose ) 
-        std::cout << "\n_minVal = " << _minVal << ", _maxVal == " << _maxVal << std::endl; 
 
     // Initialize _memPool
     assert( _memPool.empty() && "_memPool is not empty!" ); 
@@ -656,6 +701,62 @@ void GpuDel::initForFlip( const Point3HVec pointVec )
     _insVertVec.expand( 0 ); 
 
     _counterVec.resize( CounterNum ); 
+}
+
+void GpuDel::reset( const int num_points )
+{
+    _pointNum			= num_points;	// Plus the infinity point
+    const int TetMax    = (int) ( _pointNum * 8.5 );
+    // Allocate space
+    _tetVec.resize( TetMax );
+    _oppVec.resize( TetMax );
+    _tetInfoVec.resize( TetMax );
+    _freeVec.resize( TetMax );
+    _tetVoteVec.assign( TetMax, INT_MAX ); 
+
+    _voteOffset = INT_MAX; 
+
+    _flipVec.resize( TetMax / 2 ); 
+    _actTetVec.resize( TetMax );
+    _vertSphereVec.resize( _pointNum );
+    _vertFreeVec.assign( _pointNum, 0 ); 
+    _insVertVec.resize( _pointNum ); 
+    _tetMsgVec.assign( TetMax, make_int2( -1, -1 ) );
+
+    _flipVec.expand( 0 ); 
+    _tetVec.expand( 0 ); 
+    _oppVec.expand( 0 ); 
+    _tetInfoVec.expand( 0 ); 
+    _insVertVec.expand( 0 ); 
+
+    _counterVec.resize( CounterNum ); 
+
+    _vertTetVec.free();
+    _vertVec.free();
+    _flipVec.free(); 
+    // toKernelArray( _vertVec ),
+    // toKernelPtr( _vertTetVec ),
+    // toKernelPtr( tetToFlip ),
+    // toKernelPtr( _flipVec )
+}
+
+void GpuDel::initForFlip( const Point3HVec pointVec, const TetHVec *initTets)
+{
+
+    _pointVec.copyFromHost( pointVec );
+
+	// Find the min and max coordinate value
+    typedef thrust::device_ptr< RealType > RealPtr; 
+	RealPtr coords( ( RealType* ) toKernelPtr( _pointVec ) ); 
+    thrust::pair< RealPtr, RealPtr> ret
+        = thrust::minmax_element( coords, coords + _pointVec.size() * 3 ); 
+
+    _minVal = *ret.first; 
+    _maxVal = *ret.second; 
+
+    if ( _params.verbose ) 
+        std::cout << "\n_minVal = " << _minVal << ", _maxVal == " << _maxVal << std::endl; 
+
 
     // Sort points along space curve
     if ( !_params.noSorting )
@@ -684,7 +785,11 @@ void GpuDel::initForFlip( const Point3HVec pointVec )
     }
 
     // Create first upper-lower tetra
-	constructInitialTetra(); 
+    if (initTets != NULL) {
+        constructInitialTetraFromPrev(*initTets); 
+    } else {
+        constructInitialTetra(); 
+    }
 
 	// Initialize CPU predicate wrapper
 	_predWrapper.init( pointVec, _ptInfty ); 
@@ -1102,7 +1207,7 @@ bool GpuDel::doFlipping( CheckDelaunayMode checkMode )
     // Flipping
     ////
     // 32 ThreadsPerBlock is optimal
-    kerFlip<<< BlocksPerGrid, 32 >>>( 
+    kerFlip<<< BlocksPerGrid, FlipThreadsPerBlock >>>( 
         toKernelArray( flipToTet ),
         toKernelPtr( _tetVec ),
         toKernelPtr( _oppVec ),

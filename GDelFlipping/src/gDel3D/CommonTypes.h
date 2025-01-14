@@ -70,11 +70,12 @@ DAMAGE.
 #include <thrust/transform_scan.h>
 #include <thrust/unique.h>
 
-#ifdef REAL_TYPE_FP32
+// #ifdef REAL_TYPE_FP32
+// typedef float RealType;
+// #else
+// typedef double RealType;
+// #endif
 typedef float RealType;
-#else
-typedef double RealType;
-#endif
 
 typedef unsigned char uchar;
 
@@ -190,7 +191,7 @@ struct Point3
 };
 
 //////////////////////////////////////////////////////////////////////// Tet //
-struct Tet
+struct alignas(16) Tet
 {
     int _v[4];
 
@@ -522,14 +523,13 @@ struct GDelParams
 
     InsertionRule insRule;  // Different rule for choosing points to insert in each round
 
-    GDelParams() 
-    {
-        noSplaying  = false; 
-        insertAll   = false; 
-        noSorting   = false; 
-        verbose     = false; 
-        insRule     = InsCircumcenter;
-    }
+    GDelParams(
+        bool _noSplaying=false,
+        bool _insertAll=false,
+        bool _noSorting=false,
+        bool _verbose=false,
+        InsertionRule _insRule=InsCircumcenter) :
+        noSplaying(_noSplaying), insertAll(_insertAll), noSorting(_noSorting), verbose(_verbose), insRule(_insRule) {};
 };
 
 struct GDelOutput

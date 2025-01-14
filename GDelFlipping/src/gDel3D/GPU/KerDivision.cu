@@ -805,8 +805,9 @@ int*        orgPointIdx
     {
         Tet tet = loadTet( tetVec._arr, idx ); 
 
-        for ( int i = 0; i < 4; ++i ) 
+        for ( int i = 0; i < 4; ++i ) {
 			tet._v[ i ] = orgPointIdx[ tet._v[i] ]; 
+        }
 
         storeTet( tetVec._arr, idx, tet ); 
     }

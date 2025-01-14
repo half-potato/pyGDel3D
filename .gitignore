@@ -1,0 +1,105 @@
+# Compiled object files, static and dynamic libraries
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+
+# Executable files
+*.exe
+*.out
+*.app
+*.elf
+
+# Debug files
+*.dSYM/
+*.pdb
+*.idb
+
+# Build directories
+/build/
+/bin/
+/lib/
+/dist/
+/Debug/
+/Release/
+
+# CMake files
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/Makefile
+/*.make
+/*.ninja
+
+# Ignore specific CMake modules
+dtet/CMake/*.cmake
+dtet/CMake/FindCUDA/
+dtet/CMake/configure_slang.cmake
+dtet/CMake/ptx2cpp.cmake
+dtet/CMake/sse_support.h.in
+
+# Ignore all generated CMake files in build directories
+dtet/build/*
+!dtet/build/.gitkeep  # If you want to track an empty build directory
+
+# CUDA build artifacts
+*.cu.*
+*.cubin
+*.ptx
+*.fatbin
+*.gpu
+*.stub.c
+
+# Visual Studio Code
+.vscode/
+
+# CLion IDE files
+.idea/
+cmake-build-*/
+
+# Other IDE and editor files
+*.swp
+*~
+*.swo
+*.directory
+
+# Logs and temporary files
+*.log
+*.tmp
+*.cache
+*.bak
+
+# GTest build artifacts
+gtest/
+
+# Conan package manager files
+/conan.lock
+/conanbuildinfo.*
+/conaninfo.*
+/graph_info.json
+
+# Python virtual environment and package artifacts
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Python build artifacts
+*.egg-info/
+build/
+dist/
+*.egg
+*.whl
+
+# Pybind11 build files
+pybind11/
+dtet/build/pybind11/
+
+# Ignore setup script artifacts
+setup.py
+test.py
+

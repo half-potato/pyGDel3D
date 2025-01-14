@@ -48,7 +48,7 @@ DAMAGE.
 
 const int deviceIdx     = 0; 
 const int seed          = 123456789;
-const int pointNum      = 100000; 
+const int pointNum      = 1000000; 
 const Distribution dist = UniformDistribution;
 
 Point3HVec   pointVec; 

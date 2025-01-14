@@ -45,7 +45,7 @@ DAMAGE.
 #include "HostToKernel.h"
 #include "DPredWrapper.h"
 
-#define PRED_THREADS_PER_BLOCK	32
+#define PRED_THREADS_PER_BLOCK	64
 
 void setPredWrapperConstant( const DPredWrapper &hostPredWrapper );
 
