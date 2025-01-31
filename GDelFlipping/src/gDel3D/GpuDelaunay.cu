@@ -256,7 +256,7 @@ void GpuDel::constructInitialTetraFromPrev(const TetHVec &initTets)
     _tetVec.copyFromHost( initTets );
     const int curTetNum = _tetVec.size();
     _tetInfoVec.resize( curTetNum );
-    thrust::fill( _tetInfoVec.begin(), _tetInfoVec.end(), 1 );
+    ::mgx::thrust::fill( _tetInfoVec.begin(), _tetInfoVec.end(), 1 );
     // Update the number of tets currently stored
     expandTetraList(curTetNum);
 
@@ -297,7 +297,7 @@ void GpuDel::constructInitialTetraFromPrev(const TetHVec &initTets)
     //      );
     // CudaCheckError();
     _vertVec.resize( _pointNum );
-    thrust::sequence( _vertVec.begin(), _vertVec.end() );
+    ::mgx::thrust::sequence( _vertVec.begin(), _vertVec.end() );
 
     _vertTetVec.assign( _pointNum, 0 );
 
@@ -309,7 +309,7 @@ void GpuDel::constructInitialTetra()
 	// First, choose two extreme points along the X axis
 	typedef Point3DVec::iterator Point3DIter; 
 
-	thrust::pair< Point3DIter, Point3DIter > ret = thrust::minmax_element( _pointVec.begin(), _pointVec.end(), CompareX() ); 
+	::mgx::thrust::pair< Point3DIter, Point3DIter > ret = ::mgx::thrust::minmax_element( _pointVec.begin(), _pointVec.end(), CompareX() ); 
 
     int v0 = ret.first - _pointVec.begin(); 
 	int v1 = ret.second - _pointVec.begin(); 
@@ -322,15 +322,15 @@ void GpuDel::constructInitialTetra()
 
 	distVec.resize( _pointVec.size() ); 
 
-	thrust::transform( _pointVec.begin(), _pointVec.end(), distVec.begin(), Get2Ddist( p0, p1 ) ); 
+	::mgx::thrust::transform( _pointVec.begin(), _pointVec.end(), distVec.begin(), Get2Ddist( p0, p1 ) ); 
 
-	const int v2	= thrust::max_element( distVec.begin(), distVec.end() ) - distVec.begin(); 
+	const int v2	= ::mgx::thrust::max_element( distVec.begin(), distVec.end() ) - distVec.begin(); 
 	const Point3 p2 = _pointVec[v2]; 
 
     // Find the furthest point from v0v1v2
-	thrust::transform( _pointVec.begin(), _pointVec.end(), distVec.begin(), Get3Ddist( p0, p1, p2 ) ); 
+	::mgx::thrust::transform( _pointVec.begin(), _pointVec.end(), distVec.begin(), Get3Ddist( p0, p1, p2 ) ); 
 
-    const int v3	= thrust::max_element( distVec.begin(), distVec.end() ) - distVec.begin(); 
+    const int v3	= ::mgx::thrust::max_element( distVec.begin(), distVec.end() ) - distVec.begin(); 
 	const Point3 p3 = _pointVec[v3]; 
 
     if ( _params.verbose )
@@ -417,7 +417,7 @@ void GpuDel::constructInitialTetra()
 
     // Remove the 4 inserted points
     _vertVec.resize( _pointNum );
-    thrust::sequence( _vertVec.begin(), _vertVec.end() );
+    ::mgx::thrust::sequence( _vertVec.begin(), _vertVec.end() );
 
     compactBothIfNegative( _vertTetVec, _vertVec );
 }
@@ -451,7 +451,7 @@ void GpuDel::expandTetraList( int newTetNum )
     _tetInfoVec.expand( newTetNum );
 
     // Initialize the free tets
-    thrust::fill( _tetInfoVec.begin() + tetNum, _tetInfoVec.end(), 0 );
+    ::mgx::thrust::fill( _tetInfoVec.begin() + tetNum, _tetInfoVec.end(), 0 );
 
     return;
 }
@@ -484,7 +484,7 @@ void GpuDel::reorderVec( IntDVec &orderVec, DevVector< T > &dataVec, int oldInfB
 
     // Copy data to a temp place
     tempVec.resize( size ); 
-    thrust::copy_n( dataVec.begin(), size, tempVec.begin() ); 
+    ::mgx::thrust::copy_n( dataVec.begin(), size, tempVec.begin() ); 
 
     // Initialize if needed
     if ( init != NULL ) 
@@ -510,8 +510,8 @@ void GpuDel::pushVecTail( DevVector< T > &dataVec, int size, int from, int gap )
 
     tempVec.resize( tail ); 
 
-    thrust::copy_n( dataVec.begin() + from, tail, tempVec.begin() ); 
-    thrust::copy_n( tempVec.begin(), tail, dataVec.begin() + from + gap ); 
+    ::mgx::thrust::copy_n( dataVec.begin() + from, tail, tempVec.begin() ); 
+    ::mgx::thrust::copy_n( tempVec.begin(), tail, dataVec.begin() + from + gap ); 
 }
 
 // Expansion and reserving a storage for each new vertex
@@ -533,7 +533,7 @@ void GpuDel::expandTetraList( IntDVec *newVertVec, int tailExtra, IntDVec *tetTo
         int newInfBlockIdx  = newInsNum * MeanVertDegree; 
 
         _insVertVec.resize( newInsNum ); 
-        thrust::copy( newVertVec->begin(), newVertVec->end(), _insVertVec.begin() + oldInsNum ); 
+        ::mgx::thrust::copy( newVertVec->begin(), newVertVec->end(), _insVertVec.begin() + oldInsNum ); 
 
         if ( sort ) 
         {
@@ -543,14 +543,14 @@ void GpuDel::expandTetraList( IntDVec *newVertVec, int tailExtra, IntDVec *tetTo
 
             tempVec.assign( newInsNum + _pointNum, -1 );
 
-            thrust::counting_iterator<int> zero_iter( 0 ); 
-            thrust::counting_iterator<int> insNum_iter( newInsNum ); 
-            thrust::counting_iterator<int> pointNum_iter( _pointNum ); 
+            ::mgx::thrust::counting_iterator<int> zero_iter( 0 ); 
+            ::mgx::thrust::counting_iterator<int> insNum_iter( newInsNum ); 
+            ::mgx::thrust::counting_iterator<int> pointNum_iter( _pointNum ); 
 
-            thrust::scatter( zero_iter, insNum_iter, _insVertVec.begin(), tempVec.begin() + scatterIdx ); 
+            ::mgx::thrust::scatter( zero_iter, insNum_iter, _insVertVec.begin(), tempVec.begin() + scatterIdx ); 
 
             // Get the sorted list of points
-            thrust::copy_if( zero_iter, pointNum_iter, tempVec.begin() + scatterIdx, _insVertVec.begin(), IsNotNegative() ); 
+            ::mgx::thrust::copy_if( zero_iter, pointNum_iter, tempVec.begin() + scatterIdx, _insVertVec.begin(), IsNotNegative() ); 
 
             // Get the reverse map            
             kerMakeReverseMap<<< BlocksPerGrid, ThreadsPerBlock >>>(
@@ -658,7 +658,7 @@ void GpuDel::expandTetraList( IntDVec *newVertVec, int tailExtra, IntDVec *tetTo
             CudaCheckError(); 
 
             // Initialize the free tets
-            thrust::fill_n( _tetInfoVec.begin() + oldInfBlockIdx, insExtraSpace, 0 );
+            ::mgx::thrust::fill_n( _tetInfoVec.begin() + oldInfBlockIdx, insExtraSpace, 0 );
         }
     }
 
@@ -746,10 +746,10 @@ void GpuDel::initForFlip( const Point3HVec pointVec, const TetHVec *initTets)
     _pointVec.copyFromHost( pointVec );
 
 	// Find the min and max coordinate value
-    typedef thrust::device_ptr< RealType > RealPtr; 
+    typedef ::mgx::thrust::device_ptr< RealType > RealPtr; 
 	RealPtr coords( ( RealType* ) toKernelPtr( _pointVec ) ); 
-    thrust::pair< RealPtr, RealPtr> ret
-        = thrust::minmax_element( coords, coords + _pointVec.size() * 3 ); 
+    ::mgx::thrust::pair< RealPtr, RealPtr> ret
+        = ::mgx::thrust::minmax_element( coords, coords + _pointVec.size() * 3 ); 
 
     _minVal = *ret.first; 
     _maxVal = *ret.second; 
@@ -768,7 +768,7 @@ void GpuDel::initForFlip( const Point3HVec pointVec, const TetHVec *initTets)
         valueVec.resize( _pointVec.size() );
 
         _orgPointIdx.resize( _pointNum );   // 1 slot for the infinity point
-        thrust::sequence( _orgPointIdx.begin(), _orgPointIdx.end(), 0 ); 
+        ::mgx::thrust::sequence( _orgPointIdx.begin(), _orgPointIdx.end(), 0 ); 
 
         thrust_transform_GetMortonNumber( 
             _pointVec.begin(), _pointVec.end(), valueVec.begin(),
@@ -941,7 +941,7 @@ void GpuDel::splitTetra()
 
     realInsVertVec.resize( _insNum ); 
 
-    thrust::gather( newVertVec.begin(), newVertVec.end(), _vertVec.begin(), realInsVertVec.begin() ); 
+    ::mgx::thrust::gather( newVertVec.begin(), newVertVec.end(), _vertVec.begin(), realInsVertVec.begin() ); 
 
     ////
     // Prepare space
@@ -1128,8 +1128,8 @@ bool GpuDel::doFlipping( CheckDelaunayMode checkMode )
 #pragma region Diagnostic
     if ( _params.verbose )
     {
-        const int flip23Num = thrust::transform_reduce(
-            flipToTet.begin(), flipToTet.end(), IsFlip23(), 0, thrust::plus<int>() ); 
+        const int flip23Num = ::mgx::thrust::transform_reduce(
+            flipToTet.begin(), flipToTet.end(), IsFlip23(), 0, ::mgx::thrust::plus<int>() ); 
         const int flip32Num = flipNum - flip23Num; 
 
         std::cout << "  Active: " << actNum
@@ -1311,8 +1311,8 @@ void GpuDel::compactTetras()
     
     prefixVec.resize( tetNum ); 
 
-    thrust::transform_inclusive_scan( _tetInfoVec.begin(), _tetInfoVec.end(), 
-        prefixVec.begin(), TetAliveStencil(), thrust::plus<int>() ); 
+    ::mgx::thrust::transform_inclusive_scan( _tetInfoVec.begin(), _tetInfoVec.end(), 
+        prefixVec.begin(), TetAliveStencil(), ::mgx::thrust::plus<int>() ); 
 
     int newTetNum = prefixVec[ tetNum - 1 ];
     int freeNum   = tetNum - newTetNum; 

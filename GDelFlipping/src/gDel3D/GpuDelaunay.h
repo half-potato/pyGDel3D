@@ -41,6 +41,9 @@ DAMAGE.
 
 #pragma once
 
+#define THRUST_WRAPPED_NAMESPACE mgx
+#include <thrust/device_vector.h>
+
 #include "CommonTypes.h"
 
 #include "GPU/GPUDecl.h"

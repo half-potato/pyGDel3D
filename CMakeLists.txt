@@ -3,12 +3,20 @@ project(gflip3d CUDA CXX)
 
 # Find CUDA toolkit which includes Thrust
 find_package(CUDA REQUIRED)
+include_directories("${CUDA_INCLUDE_DIRS}")
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(USE_SINGLE_PRECISION "Use single precision floating point" OFF)
 
+if (CMAKE_VERSION VERSION_LESS 3.18)
+  set(DEV_MODULE Development)
+else()
+  set(DEV_MODULE Development.Module)
+endif()
+
+find_package(Python 3.8 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 
 set(CMAKE_MODULE_PATH
   "${CMAKE_SOURCE_DIR}/CMake"
@@ -21,7 +29,7 @@ include_directories(${CONDA_PREFIX}/include)
 find_package(Torch REQUIRED)
 
 # Add pybind11
-add_subdirectory(pybind11)
+add_subdirectory(nanobind)
 
 
 # Include directories
@@ -49,8 +57,7 @@ add_executable(${PROJECT_NAME}
     GDelFlipping/src/Demo.cpp
     ${SOURCES}
 )
-
-pybind11_add_module(gdel3d 
+nanobind_add_module(gdel3d 
     GDelFlipping/src/bindings.cpp
     ${SOURCES}
 )

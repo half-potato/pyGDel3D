@@ -47,8 +47,8 @@ DAMAGE.
 #include "Star.h"
 #include "PredWrapper.h"
 
-typedef thrust::host_vector< Star* > StarPtrHVec;
-typedef thrust::host_vector< Star > StarHVec;
+typedef ::mgx::thrust::host_vector< Star* > StarPtrHVec;
+typedef ::mgx::thrust::host_vector< Star > StarHVec;
 
 class Splaying
 {
