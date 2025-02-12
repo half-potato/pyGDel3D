@@ -1,6 +1,5 @@
-#include <nanobind/nanobind.h>
-#include <nanobind/ndarray.h>
-
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
 #include <torch/extension.h>
 
 #include "gDel3D/GpuDelaunay.h"
