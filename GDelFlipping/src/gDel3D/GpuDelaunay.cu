@@ -264,7 +264,7 @@ void GpuDel::constructInitialTetraFromPrev(const TetHVec &initTets)
 	// First, choose two extreme points along the X axis
 	typedef Point3DVec::iterator Point3DIter; 
 
-	thrust::pair< Point3DIter, Point3DIter > ret = thrust::minmax_element( _pointVec.begin(), _pointVec.end(), CompareX() ); 
+	::mgx::thrust::pair< Point3DIter, Point3DIter > ret = ::mgx::thrust::minmax_element( _pointVec.begin(), _pointVec.end(), CompareX() ); 
 
     int v0 = ret.first - _pointVec.begin(); 
 	int v1 = ret.second - _pointVec.begin(); 
@@ -277,15 +277,15 @@ void GpuDel::constructInitialTetraFromPrev(const TetHVec &initTets)
 
 	distVec.resize( _pointVec.size() ); 
 
-	thrust::transform( _pointVec.begin(), _pointVec.end(), distVec.begin(), Get2Ddist( p0, p1 ) ); 
+	::mgx::thrust::transform( _pointVec.begin(), _pointVec.end(), distVec.begin(), Get2Ddist( p0, p1 ) ); 
 
-	const int v2	= thrust::max_element( distVec.begin(), distVec.end() ) - distVec.begin(); 
+	const int v2	= ::mgx::thrust::max_element( distVec.begin(), distVec.end() ) - distVec.begin(); 
 	const Point3 p2 = _pointVec[v2]; 
 
     // Find the furthest point from v0v1v2
-	thrust::transform( _pointVec.begin(), _pointVec.end(), distVec.begin(), Get3Ddist( p0, p1, p2 ) ); 
+	::mgx::thrust::transform( _pointVec.begin(), _pointVec.end(), distVec.begin(), Get3Ddist( p0, p1, p2 ) ); 
 
-    const int v3	= thrust::max_element( distVec.begin(), distVec.end() ) - distVec.begin(); 
+    const int v3	= ::mgx::thrust::max_element( distVec.begin(), distVec.end() ) - distVec.begin(); 
 	const Point3 p3 = _pointVec[v3]; 
 
     if ( _params.verbose )

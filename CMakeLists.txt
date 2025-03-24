@@ -5,92 +5,92 @@ enable_language(CUDA)
 find_package(CUDAToolkit REQUIRED)
 include_directories(${CUDAToolkit_INCLUDE_DIRS})
 
-add_definitions(-D_GLIBCXX_USE_CXX11_ABI=1)
-
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(USE_SINGLE_PRECISION "Use single precision floating point" OFF)
+set(CUDA_SEPARABLE_COMPILATION ON)
 
-set(CMAKE_MODULE_PATH
-  "${CMAKE_SOURCE_DIR}/CMake"
-  ${CMAKE_MODULE_PATH}
-  )
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
-include_directories(${CONDA_PREFIX}/include)
+# Ensure ABI matches PyTorch exactly
+execute_process(
+    COMMAND python -c "import torch; print(int(torch._C._GLIBCXX_USE_CXX11_ABI))"
+    OUTPUT_VARIABLE TORCH_ABI
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+add_definitions(-D_GLIBCXX_USE_CXX11_ABI=${TORCH_ABI})
+
+# Automatically get Torch's path
+execute_process(
+    COMMAND python -c "import torch; print(torch.utils.cmake_prefix_path)"
+    OUTPUT_VARIABLE TORCH_CMAKE_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+list(APPEND CMAKE_PREFIX_PATH "${TORCH_CMAKE_PATH}")
 
 # Find PyTorch
 find_package(Torch REQUIRED)
-find_library(TORCH_PYTHON_LIBRARY torch_python PATH "${TORCH_INSTALL_PREFIX}/lib")
 
-# Add pybind11
-include(FetchContent)
-FetchContent_Declare(
-    pybind11
-    GIT_REPOSITORY https://github.com/pybind/pybind11.git
-    GIT_TAG v2.11.1  # Change this to the desired version
+execute_process(
+    COMMAND python -c "import torch; from pathlib import Path; print(Path(torch.__file__).parent / 'include')"
+    OUTPUT_VARIABLE TORCH_INCLUDE_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-FetchContent_MakeAvailable(pybind11)
-if (CMAKE_VERSION VERSION_LESS 3.18)
-  set(DEV_MODULE Development)
-else()
-  set(DEV_MODULE Development.Module)
-endif()
 
-find_package(Python 3.8 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
+execute_process(
+    COMMAND python -c "import torch; from pathlib import Path; print(Path(torch.__file__).parent / 'lib' / 'libtorch_python.so')"
+    OUTPUT_VARIABLE TORCH_PYTHON_LIB
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 
+# Ensure Python interpreter and dev components match PyTorch's Python
+find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
 
-# # Add pybind11
-# include(FetchContent)
-# FetchContent_Declare(
-#     nanobind
-#     GIT_REPOSITORY https://github.com/wjakob/nanobind.git
-#     # GIT_TAG v2.11.1  # Change this to the desired version
-# )
-# FetchContent_MakeAvailable(nanobind)
-# if (CMAKE_VERSION VERSION_LESS 3.18)
-#   set(DEV_MODULE Development)
-# else()
-#   set(DEV_MODULE Development.Module)
-# endif()
-# find_package(Python 3.8 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
-#
-
-# Include directories
+# Include directories explicitly
 include_directories(
     ${CMAKE_SOURCE_DIR}/GDelFlipping/Main
     ${TORCH_INCLUDE_DIRS}
+    ${TORCH_EXTENSION_INCLUDE} # PyTorch’s own PyBind11!
+    ${Python3_INCLUDE_DIRS}
 )
-
 set(SOURCES
     GDelFlipping/src/DelaunayChecker.cpp
     GDelFlipping/src/InputCreator.cpp
     GDelFlipping/src/RandGen.cpp
-    GDelFlipping/src/gDel3D/GpuDelaunay.cu
-    GDelFlipping/src/gDel3D/CPU/predicates.cpp
-    GDelFlipping/src/gDel3D/CPU/PredWrapper.cpp
     GDelFlipping/src/gDel3D/CPU/Splaying.cpp
     GDelFlipping/src/gDel3D/CPU/Star.cpp
+    GDelFlipping/src/gDel3D/CPU/predicates.cpp
+    GDelFlipping/src/gDel3D/CPU/PredWrapper.cpp
+)
+
+set(CUDA_SOURCES
+    GDelFlipping/src/gDel3D/GpuDelaunay.cu
     GDelFlipping/src/gDel3D/GPU/KerDivision.cu
     GDelFlipping/src/gDel3D/GPU/KerPredicates.cu
     GDelFlipping/src/gDel3D/GPU/ThrustWrapper.cu
 )
-
+set_source_files_properties(${CUDA_SOURCES} PROPERTIES LANGUAGE CUDA)
 
 # Create executable
 add_executable(${PROJECT_NAME}
     GDelFlipping/src/Demo.cpp
     ${SOURCES}
+    ${CUDA_SOURCES}
 )
+target_link_libraries(${PROJECT_NAME} PRIVATE ${TORCH_LIBRARIES} ${Python3_LIBRARIES})
 
-pybind11_add_module(gdel3d 
+# PyBind11 module using PyTorch’s built-in headers
+add_library(gdel3d.so MODULE
     GDelFlipping/src/bindings.cpp
     ${SOURCES}
+    ${CUDA_SOURCES}
 )
-# target_link_libraries(gdel3d PRIVATE ${TORCH_LIBRARIES})
-target_link_libraries(gdel3d PRIVATE ${TORCH_LIBRARIES} torch torch_cpu c10 torch_cuda ${TORCH_PYTHON_LIBRARY})
+target_link_libraries(gdel3d.so PRIVATE ${TORCH_LIBRARIES} ${Python3_LIBRARIES} ${TORCH_PYTHON_LIB})
 
-# Configure precision
+# Ensure proper naming (required by Python)
+set_target_properties(gdel3d.so PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}"
+                                        SUFFIX "${PYTHON_MODULE_EXTENSION}")
+
+# Configure precision option
 if(USE_SINGLE_PRECISION)
     target_compile_definitions(${PROJECT_NAME} PRIVATE REAL_TYPE_FP32)
     target_compile_definitions(gdel3d PRIVATE REAL_TYPE_FP32)
@@ -99,9 +99,9 @@ else()
     message(STATUS "Building with double precision (64-bit) floating point")
 endif()
 
-# Set optimization level for Release build
+# Optimization and debug flags
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CUDA_FLAGS_RELEASE "-O3")
-
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CUDA_FLAGS_DEBUG "-g")
+
