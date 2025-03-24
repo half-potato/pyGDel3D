@@ -41,6 +41,9 @@ DAMAGE.
 
 #pragma once
 
+#define THRUST_WRAPPED_NAMESPACE mgx
+
+
 #include <thrust/host_vector.h>
 #include <cassert>
 
@@ -181,17 +184,17 @@ inline int getOppVi( int val )
 //////////////////////////////////////////////////////////// Containers
 typedef int StackItem; 
 
-typedef thrust::host_vector< float >     FloatHVec;
-typedef thrust::host_vector< RealType >  RealHVec;
-typedef thrust::host_vector< Tri >       TriHVec;
-typedef thrust::host_vector< TriOpp >    TriOppHVec;
-typedef thrust::host_vector< TriStatus > TriStatusHVec;
-typedef thrust::host_vector< Facet >     FacetHVec;
-typedef thrust::host_vector< StackItem > StackHVec; 
+typedef ::mgx::thrust::host_vector< float >     FloatHVec;
+typedef ::mgx::thrust::host_vector< RealType >  RealHVec;
+typedef ::mgx::thrust::host_vector< Tri >       TriHVec;
+typedef ::mgx::thrust::host_vector< TriOpp >    TriOppHVec;
+typedef ::mgx::thrust::host_vector< TriStatus > TriStatusHVec;
+typedef ::mgx::thrust::host_vector< Facet >     FacetHVec;
+typedef ::mgx::thrust::host_vector< StackItem > StackHVec; 
 
 typedef IntHVec::iterator						IntHIter; 
-typedef thrust::tuple< IntHIter, IntHIter >		IntHIterTuple2;
-typedef thrust::zip_iterator< IntHIterTuple2 >	IntZipHIter;
+typedef ::mgx::thrust::tuple< IntHIter, IntHIter >		IntHIterTuple2;
+typedef ::mgx::thrust::zip_iterator< IntHIterTuple2 >	IntZipHIter;
 
 //////////////////////////////////////////////////////////// Helper functions
 inline int encode( int triIdx, int vi ) 

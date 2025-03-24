@@ -49,9 +49,9 @@ DAMAGE.
 ////
 
 typedef IntDVec::iterator                       IntDIter;
-typedef thrust::tuple< int, int >               IntTuple2;
-typedef thrust::tuple< IntDIter, IntDIter >     IntDIterTuple2;
-typedef thrust::zip_iterator< IntDIterTuple2 >  IntZipDIter;
+typedef ::mgx::thrust::tuple< int, int >               IntTuple2;
+typedef ::mgx::thrust::tuple< IntDIter, IntDIter >     IntDIterTuple2;
+typedef ::mgx::thrust::zip_iterator< IntDIterTuple2 >  IntZipDIter;
 
 ////
 // Functions
@@ -62,8 +62,8 @@ void thrust_sort_by_key
 (
 DevVector<int>::iterator keyBeg, 
 DevVector<int>::iterator keyEnd, 
-thrust::zip_iterator< 
-    thrust::tuple< 
+::mgx::thrust::zip_iterator< 
+    ::mgx::thrust::tuple< 
         DevVector<int>::iterator,
         DevVector<Point3>::iterator > > valueBeg
 )
@@ -192,7 +192,7 @@ struct IsIntTuple2Negative
 {
     __host__ __device__ bool operator() ( const IntTuple2& tup )
     {
-        const int x = thrust::get<0>( tup );
+        const int x = ::mgx::thrust::get<0>( tup );
         return ( x < 0 );
     }
 };

@@ -41,6 +41,9 @@ DAMAGE.
 
 #pragma once
 
+#define THRUST_WRAPPED_NAMESPACE mgx
+#include <thrust/device_vector.h>
+
 // STL
 #include <algorithm>
 #include <cassert>
@@ -423,12 +426,12 @@ __forceinline__ __host__ __device__ void setTetCheckState( char& c, TetCheckStat
 }
 
 //////////////////////////////////////////////////////////// Host containers //
-typedef thrust::host_vector< int >       IntHVec;
-typedef thrust::host_vector< char >      CharHVec;
-typedef thrust::host_vector< Point3 >    Point3HVec;
+typedef ::mgx::thrust::host_vector< int >       IntHVec;
+typedef ::mgx::thrust::host_vector< char >      CharHVec;
+typedef ::mgx::thrust::host_vector< Point3 >    Point3HVec;
 
-typedef thrust::host_vector< Tet >       TetHVec;
-typedef thrust::host_vector< TetOpp >    TetOppHVec;
+typedef ::mgx::thrust::host_vector< Tet >       TetHVec;
+typedef ::mgx::thrust::host_vector< TetOpp >    TetOppHVec;
 
 ///////////////////////// Parameters /////////////////////////////////////
 struct Statistics

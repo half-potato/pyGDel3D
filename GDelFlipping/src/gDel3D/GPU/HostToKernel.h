@@ -55,7 +55,7 @@ struct KerArray
 template < typename T >
 T* toKernelPtr( DevVector< T >& dVec )
 {
-    return thrust::raw_pointer_cast( &dVec[0] );
+    return ::mgx::thrust::raw_pointer_cast( &dVec[0] );
 }
 
 template < typename T >

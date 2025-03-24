@@ -185,10 +185,10 @@ class DevVector
 {
 public: 
     // Types
-    typedef typename thrust::device_ptr< T > iterator; 
+    typedef typename ::mgx::thrust::device_ptr< T > iterator; 
 
     // Properties
-    thrust::device_ptr< T > _ptr;
+    ::mgx::thrust::device_ptr< T > _ptr;
     size_t                  _size;
     size_t                  _capacity; 
     bool                    _owned; 
@@ -221,7 +221,7 @@ public:
     template< typename T1 >
     DevVector( const DevVector<T1> &clone ) : _size( 0 ), _owned( false )
     {
-        _ptr        = thrust::device_ptr< T >( ( T* ) clone._ptr.get() ); 
+        _ptr        = ::mgx::thrust::device_ptr< T >( ( T* ) clone._ptr.get() ); 
         _capacity   = clone._capacity * sizeof( T1 ) / sizeof( T ); 
     }
 
@@ -262,7 +262,7 @@ public:
         }
 
         DevVector< T > tempVec( n ); 
-        thrust::copy( begin(), end(), tempVec.begin() ); 
+        ::mgx::thrust::copy( begin(), end(), tempVec.begin() ); 
         swapAndFree( tempVec ); 
     }
 
@@ -282,7 +282,7 @@ public:
 
         try
         {
-            _ptr = thrust::device_malloc< T >( _capacity );
+            _ptr = ::mgx::thrust::device_malloc< T >( _capacity );
         }
         catch( ... )
         {
@@ -299,14 +299,14 @@ public:
     void assign( size_t n, const T& value )
     {
         resize( n ); 
-        thrust::fill_n( begin(), n, value );
+        ::mgx::thrust::fill_n( begin(), n, value );
         return;
     }
 
     size_t size() const { return _size; }
     size_t capacity() const { return _capacity; }
 
-    thrust::device_reference< T > operator[] ( const size_t index ) const
+    ::mgx::thrust::device_reference< T > operator[] ( const size_t index ) const
     {
         return _ptr[ index ]; 
     }
@@ -342,7 +342,7 @@ public:
 
         if ( _capacity > 0 )
         {
-            _ptr = thrust::device_ptr< T >( arr._ptr.get() ); 
+            _ptr = ::mgx::thrust::device_ptr< T >( arr._ptr.get() ); 
         }
 
         arr._size       = tempSize; 
@@ -351,7 +351,7 @@ public:
 
         if ( tempCap > 0 )
         {
-            arr._ptr = thrust::device_ptr< T >( tempPtr );
+            arr._ptr = ::mgx::thrust::device_ptr< T >( tempPtr );
         }
 
         return;
@@ -368,27 +368,27 @@ public:
     void copyFrom( const DevVector< T >& inArr )
     {
         resize( inArr.size() );
-        thrust::copy( inArr.begin(), inArr.end(), begin() );
+        ::mgx::thrust::copy( inArr.begin(), inArr.end(), begin() );
         return;
     }
 
     void fill( const T& value )
     {
-        thrust::fill_n( _ptr, _size, value );
+        ::mgx::thrust::fill_n( _ptr, _size, value );
         return;
     }
 
-    void copyToHost( thrust::host_vector< T >& dest )
+    void copyToHost( ::mgx::thrust::host_vector< T >& dest )
     {
         dest.insert( dest.begin(), begin(), end() );
         return;
     }
 
     // Do NOT remove! Useful for debugging.
-    void copyFromHost( const thrust::host_vector< T >& inArr )
+    void copyFromHost( const ::mgx::thrust::host_vector< T >& inArr )
     {
         resize( inArr.size() );
-        thrust::copy( inArr.begin(), inArr.end(), begin() );
+        ::mgx::thrust::copy( inArr.begin(), inArr.end(), begin() );
         return;
     }
 
@@ -398,7 +398,7 @@ public:
 
         if ( src._size > 0 )
         {
-            thrust::copy( src.begin(), src.end(), begin() ); 
+            ::mgx::thrust::copy( src.begin(), src.end(), begin() ); 
         }
 
         return *this; 

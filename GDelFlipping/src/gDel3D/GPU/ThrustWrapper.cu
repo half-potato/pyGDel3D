@@ -118,12 +118,12 @@ public:
                 //std::cout << "CachedAllocator: no free block found; calling cudaMalloc " << numBytes << std::endl;
 
                 // allocate memory and convert cuda::pointer to raw pointer
-                result = thrust::device_malloc<char>( numBytes ).get();
+                result = ::mgx::thrust::device_malloc<char>( numBytes ).get();
             }
             catch( std::runtime_error &e )
             {
                 // output an error message and exit
-                std::cerr << "thrust::device_malloc failed to allocate " << numBytes << " bytes!" << std::endl;
+                std::cerr << "::mgx::thrust::device_malloc failed to allocate " << numBytes << " bytes!" << std::endl;
                 exit( -1 );
             }
         }
@@ -161,14 +161,14 @@ void thrust_sort_by_key
 (
 DevVector<int>::iterator keyBeg, 
 DevVector<int>::iterator keyEnd, 
-thrust::zip_iterator< 
-    thrust::tuple< 
+::mgx::thrust::zip_iterator< 
+    ::mgx::thrust::tuple< 
         DevVector<int>::iterator,
         DevVector<Point3>::iterator > > valueBeg
 )
 {
-    thrust::sort_by_key( 
-        //thrust::cuda::par( thrustAllocator ),
+    ::mgx::thrust::sort_by_key( 
+        //::mgx::thrust::cuda::par( thrustAllocator ),
         keyBeg, keyEnd, valueBeg ); 
 }
 
@@ -181,8 +181,8 @@ RealType                    minVal,
 RealType                    maxVal
 )
 {
-    thrust::transform( 
-        thrust::cuda::par( thrustAllocator ),
+    ::mgx::thrust::transform( 
+        ::mgx::thrust::cuda::par( thrustAllocator ),
         inBeg, inEnd, outBeg, GetMortonNumber( minVal, maxVal ) ); 
 }
 
@@ -195,8 +195,8 @@ int makeInPlaceIncMapAndSum
 IntDVec& inVec 
 )
 {
-    thrust::inclusive_scan( 
-        thrust::cuda::par( thrustAllocator ),
+    ::mgx::thrust::inclusive_scan( 
+        ::mgx::thrust::cuda::par( thrustAllocator ),
         inVec.begin(), inVec.end(), inVec.begin() );
 
     const int sum = inVec[ inVec.size() - 1 ];
@@ -210,8 +210,8 @@ DevVector<int>& inVec
 )
 {
     inVec.erase(    
-        thrust::remove_if( 
-            //thrust::cuda::par( thrustAllocator ),
+        ::mgx::thrust::remove_if( 
+            //::mgx::thrust::cuda::par( thrustAllocator ),
             inVec.begin(), 
             inVec.end(), IsNegative() ),
         inVec.end() );
@@ -228,8 +228,8 @@ DevVector<int>& temp
     temp.resize( inVec.size() ); 
 
     temp.erase( 
-        thrust::copy_if( 
-            thrust::cuda::par( thrustAllocator ),
+        ::mgx::thrust::copy_if( 
+            ::mgx::thrust::cuda::par( thrustAllocator ),
             inVec.begin(), 
             inVec.end(), 
             temp.begin(), 
@@ -250,16 +250,16 @@ IntDVec& vec1
     assert( ( vec0.size() == vec1.size() ) && "Vectors should be equal size!" );
 
     const IntZipDIter newEnd = 
-        thrust::remove_if(  
-            //thrust::cuda::par( thrustAllocator ),
-            thrust::make_zip_iterator( thrust::make_tuple( vec0.begin(), vec1.begin() ) ),
-            thrust::make_zip_iterator( thrust::make_tuple( vec0.end(), vec1.end() ) ),
+        ::mgx::thrust::remove_if(  
+            //::mgx::thrust::cuda::par( thrustAllocator ),
+            ::mgx::thrust::make_zip_iterator( ::mgx::thrust::make_tuple( vec0.begin(), vec1.begin() ) ),
+            ::mgx::thrust::make_zip_iterator( ::mgx::thrust::make_tuple( vec0.end(), vec1.end() ) ),
             IsIntTuple2Negative() );
 
     const IntDIterTuple2 endTuple = newEnd.get_iterator_tuple();
 
-    vec0.erase( thrust::get<0>( endTuple ), vec0.end() );
-    vec1.erase( thrust::get<1>( endTuple ), vec1.end() );
+    vec0.erase( ::mgx::thrust::get<0>( endTuple ), vec0.end() );
+    vec1.erase( ::mgx::thrust::get<1>( endTuple ), vec1.end() );
 
     return;
 }
@@ -270,14 +270,14 @@ const CharDVec& inVec,
 IntDVec&        outVec
 )
 {
-    thrust::counting_iterator<int> first( 0 ); 
-    thrust::counting_iterator<int> last = first + inVec.size(); 
+    ::mgx::thrust::counting_iterator<int> first( 0 ); 
+    ::mgx::thrust::counting_iterator<int> last = first + inVec.size(); 
 
     outVec.resize( inVec.size() ); 
 
     outVec.erase( 
-        thrust::copy_if( 
-            thrust::cuda::par( thrustAllocator ),
+        ::mgx::thrust::copy_if( 
+            ::mgx::thrust::cuda::par( thrustAllocator ),
             first, last, 
             inVec.begin(), 
             outVec.begin(), 
@@ -294,14 +294,14 @@ const IntDVec& stencil,
 IntDVec&       outVec
 )
 {
-    thrust::counting_iterator<int> first( 0 ); 
-    thrust::counting_iterator<int> last = first + stencil.size(); 
+    ::mgx::thrust::counting_iterator<int> first( 0 ); 
+    ::mgx::thrust::counting_iterator<int> last = first + stencil.size(); 
 
     outVec.resize( stencil.size() ); 
 
     outVec.erase( 
-        thrust::copy_if(
-            thrust::cuda::par( thrustAllocator ),
+        ::mgx::thrust::copy_if(
+            ::mgx::thrust::cuda::par( thrustAllocator ),
             first, last, 
             stencil.begin(), 
             outVec.begin(), 

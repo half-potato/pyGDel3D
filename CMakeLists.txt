@@ -1,14 +1,16 @@
 cmake_minimum_required(VERSION 3.16)
 project(gflip3d CUDA CXX)
 
-# Find CUDA toolkit which includes Thrust
-find_package(CUDA REQUIRED)
+enable_language(CUDA)
+find_package(CUDAToolkit REQUIRED)
+include_directories(${CUDAToolkit_INCLUDE_DIRS})
+
+add_definitions(-D_GLIBCXX_USE_CXX11_ABI=1)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(USE_SINGLE_PRECISION "Use single precision floating point" OFF)
-
 
 set(CMAKE_MODULE_PATH
   "${CMAKE_SOURCE_DIR}/CMake"
@@ -19,10 +21,40 @@ include_directories(${CONDA_PREFIX}/include)
 
 # Find PyTorch
 find_package(Torch REQUIRED)
+find_library(TORCH_PYTHON_LIBRARY torch_python PATH "${TORCH_INSTALL_PREFIX}/lib")
 
 # Add pybind11
-add_subdirectory(pybind11)
+include(FetchContent)
+FetchContent_Declare(
+    pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG v2.11.1  # Change this to the desired version
+)
+FetchContent_MakeAvailable(pybind11)
+if (CMAKE_VERSION VERSION_LESS 3.18)
+  set(DEV_MODULE Development)
+else()
+  set(DEV_MODULE Development.Module)
+endif()
 
+find_package(Python 3.8 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
+
+
+# # Add pybind11
+# include(FetchContent)
+# FetchContent_Declare(
+#     nanobind
+#     GIT_REPOSITORY https://github.com/wjakob/nanobind.git
+#     # GIT_TAG v2.11.1  # Change this to the desired version
+# )
+# FetchContent_MakeAvailable(nanobind)
+# if (CMAKE_VERSION VERSION_LESS 3.18)
+#   set(DEV_MODULE Development)
+# else()
+#   set(DEV_MODULE Development.Module)
+# endif()
+# find_package(Python 3.8 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
+#
 
 # Include directories
 include_directories(
@@ -44,6 +76,7 @@ set(SOURCES
     GDelFlipping/src/gDel3D/GPU/ThrustWrapper.cu
 )
 
+
 # Create executable
 add_executable(${PROJECT_NAME}
     GDelFlipping/src/Demo.cpp
@@ -54,8 +87,8 @@ pybind11_add_module(gdel3d
     GDelFlipping/src/bindings.cpp
     ${SOURCES}
 )
-target_link_libraries(gdel3d PRIVATE ${TORCH_LIBRARIES})
-
+# target_link_libraries(gdel3d PRIVATE ${TORCH_LIBRARIES})
+target_link_libraries(gdel3d PRIVATE ${TORCH_LIBRARIES} torch torch_cpu c10 torch_cuda ${TORCH_PYTHON_LIBRARY})
 
 # Configure precision
 if(USE_SINGLE_PRECISION)
