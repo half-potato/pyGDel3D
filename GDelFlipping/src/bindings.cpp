@@ -38,7 +38,25 @@ class PyGDelOutput {
     public:
         GDelOutput   output; 
         bool checkCorrectness(torch::Tensor &points);
+        torch::Tensor computePointImportance(torch::Tensor &points);
+        torch::Tensor getBoundaryTets(torch::Tensor &points);
 };
+torch::Tensor PyGDelOutput::getBoundaryTets(torch::Tensor &points) {
+    const Point3* dataPtr = reinterpret_cast<const Point3*>(points.data_ptr());
+    
+    int64_t size = points.size(0);
+
+    // Create a Thrust host vector
+    Point3HVec pointVec(dataPtr, dataPtr + size);
+    DelaunayChecker checker( &pointVec,  &output ); 
+    std::vector<int> vec = checker.getHullTets();
+    torch::Tensor output_tensor = torch::from_blob(
+        reinterpret_cast<int*>(vec.data()), 
+        {static_cast<long>(vec.size())},
+        torch::TensorOptions().dtype(torch::kInt32)
+    );
+    return output_tensor.clone();
+}
 
 bool PyGDelOutput::checkCorrectness(torch::Tensor &points) {
     const Point3* dataPtr = reinterpret_cast<const Point3*>(points.data_ptr());
@@ -98,17 +116,22 @@ PyGPUDel::computeUsingPrev(torch::Tensor &points, PyGDelOutput &prevOutput) {
     triangulator.initForFlip( pointVec, &prevOutput.output.tetVec );
     // Restore variables
     triangulator._oppVec.copyFromHost(prevOutput.output.tetOppVec);
-    triangulator._tetInfoVec.copyFromHost(prevOutput.output.tetInfoVec);
+    // triangulator._tetInfoVec.copyFromHost(prevOutput.output.tetInfoVec);
 
 
     // triangulator.splitAndFlip();
     triangulator.doFlippingLoop( SphereFastOrientFast ); 
 
     triangulator.markSpecialTets(); 
-    triangulator.doFlippingLoop( SphereExactOrientSoS ); 
+    // triangulator.doFlippingLoop( SphereExactOrientSoS ); 
 
     triangulator.relocateAll(); 
     triangulator.outputToHost(); 
+
+    for (int i=0; i<pyOutput.output.failVertVec.size(); i++) {
+        printf("%i, ", pyOutput.output.failVertVec[i]);
+    }
+    printf("\n");
     triangulator._splaying.fixWithStarSplaying( pointVec, &pyOutput.output );
     timer.stop(); 
     triangulator._output->stats.totalTime = timer.value(); 
@@ -170,7 +193,8 @@ namespace py = pybind11;
 PYBIND11_MODULE(gdel3d, m) {
     m.doc() = "Python bindings for gdel3d";
     py::class_<PyGDelOutput>(m, "DelOutput")
-        .def("check_correctness", &PyGDelOutput::checkCorrectness);
+        .def("check_correctness", &PyGDelOutput::checkCorrectness)
+        .def("get_boundary_tets", &PyGDelOutput::getBoundaryTets);
     py::class_<PyGPUDel>(m, "Del")
         .def(py::init<int>())
         .def("compute", &PyGPUDel::compute)

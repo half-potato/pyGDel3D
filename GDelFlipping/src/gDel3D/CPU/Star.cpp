@@ -215,6 +215,7 @@ bool Star::doFlipping( int startIdx, int startVi, IntHVec* stack, IntHVec* isNon
         const int oppVi  = opp.getOppVi( vi ); 
 
         const int oppVert = _triVec[ oppTri ]._v[ oppVi ]; 
+        // printf("Opp tet(%i): %i, %i, %i, %i\n", triIdx, _triVec[0], _triVec[1], _triVec[2], _triVec[3]);
 
         // Find the min labeled vert in the configuration
         int minVert = INT_MAX; 
@@ -227,8 +228,9 @@ bool Star::doFlipping( int startIdx, int startVi, IntHVec* stack, IntHVec* isNon
 
         // Skip if flipping increases the min non-extreme vert's degree
         if ( minVert == tri._v[ vi ] || minVert == oppVert ) continue; 
-
+        // printf("checking tet: %i, %i, %i, %i: %i, %i\n", tri._v[ 0 ], tri._v[ 1 ], tri._v[2],  tri._v[ 3 ], _vert, oppVert);
         Orient ort = _predWrapper.doOrient4DAdaptSoS( makeTet( tri._v[ 0 ], tri._v[ 1 ], tri._v[ 2 ], _vert ), oppVert ); 
+        // printf("Done\n");
 
         if ( OrientPos == ort && minVert == INT_MAX ) 
             continue; 

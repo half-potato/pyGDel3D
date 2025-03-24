@@ -228,6 +228,7 @@ void Splaying::makeFailedStarsAndQueue(
 
     // Init vectors
     _starVec.assign( _predWrapper.pointNum(), ( Star* ) NULL );
+    // assigning infinity
     _tetVisit.assign( MAX( _tetVec->size(), _predWrapper.pointNum() ), -1 );
 
     timer.start(); 
@@ -235,6 +236,7 @@ void Splaying::makeFailedStarsAndQueue(
     _stk.clear();
 
     _visitId = 0;
+    // printf("Num failed: %lu\n", failVertVec.size());
     
     // Get worksets and create stars
     for ( int vertIdx = 0; vertIdx < ( int ) failVertVec.size(); ++vertIdx )
@@ -243,7 +245,9 @@ void Splaying::makeFailedStarsAndQueue(
 
         _starVec[ failVert ] = createFromTetra( failVert ); 
 
+        // printf("Flipping vert idx: %i, %i\n", vertIdx, failVert);
         _starVec[ failVert ]->flipping( &_intStack, &_stk, &_tetVisit, _visitId++ ); 
+        // printf("Done\n");
 
         compareStarAddQueue( _starVec[ failVert ] ); 
     }

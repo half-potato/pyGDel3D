@@ -256,15 +256,70 @@ void GpuDel::constructInitialTetraFromPrev(const TetHVec &initTets)
     _tetVec.copyFromHost( initTets );
     const int curTetNum = _tetVec.size();
     _tetInfoVec.resize( curTetNum );
-    thrust::fill( _tetInfoVec.begin(), _tetInfoVec.end(), 1 );
+    thrust::fill( _tetInfoVec.begin(), _tetInfoVec.end(), 3 );
     // Update the number of tets currently stored
     expandTetraList(curTetNum);
 
+    // construct the point at infinity
+	// First, choose two extreme points along the X axis
+	typedef Point3DVec::iterator Point3DIter; 
+
+	thrust::pair< Point3DIter, Point3DIter > ret = thrust::minmax_element( _pointVec.begin(), _pointVec.end(), CompareX() ); 
+
+    int v0 = ret.first - _pointVec.begin(); 
+	int v1 = ret.second - _pointVec.begin(); 
+
+	const Point3 p0 = _pointVec[v0]; 
+	const Point3 p1 = _pointVec[v1]; 
+
+	// Find the furthest point from v0v1
+	IntDVec &distVec = _vertSphereVec; 
+
+	distVec.resize( _pointVec.size() ); 
+
+	thrust::transform( _pointVec.begin(), _pointVec.end(), distVec.begin(), Get2Ddist( p0, p1 ) ); 
+
+	const int v2	= thrust::max_element( distVec.begin(), distVec.end() ) - distVec.begin(); 
+	const Point3 p2 = _pointVec[v2]; 
+
+    // Find the furthest point from v0v1v2
+	thrust::transform( _pointVec.begin(), _pointVec.end(), distVec.begin(), Get3Ddist( p0, p1, p2 ) ); 
+
+    const int v3	= thrust::max_element( distVec.begin(), distVec.end() ) - distVec.begin(); 
+	const Point3 p3 = _pointVec[v3]; 
+
+    if ( _params.verbose )
+	{
+		std::cout << "Leftmost: " << v0 << " --> " << p0._p[0] << " " << p0._p[1] << " " << p0._p[2] << std::endl; 
+		std::cout << "Rightmost: " << v1 << " --> " << p1._p[0] << " " << p1._p[1] << " " << p1._p[2] << std::endl; 
+		std::cout << "Furthest 2D: " << v2 << " --> " << p2._p[0] << " " << p2._p[1] << " " << p2._p[2] << std::endl; 
+		std::cout << "Furthest 3D: " << v3 << " --> " << p3 ._p[0] << " " << p3 ._p[1] << " " << p3 ._p[2] << std::endl; 
+	}
+
+	// Check to make sure the 4 points are not co-planar
+	RealType ori = orient3dzero( p0._p, p1._p, p2._p, p3._p ); 
+
+	if ( ori == 0.0 )
+	{
+		std::cout << "Input too degenerate!!!\n" << std::endl; 
+		exit(-1); 
+	}
+
+	if ( ortToOrient( ori ) == OrientNeg ) 
+		std::swap( v0, v1 ); 
+
+
+	_ptInfty._p[0] = ( p0._p[0] + p1._p[0] + p2._p[0] + p3._p[0] ) / 4.0; 
+	_ptInfty._p[1] = ( p0._p[1] + p1._p[1] + p2._p[1] + p3._p[1] ) / 4.0; 
+	_ptInfty._p[2] = ( p0._p[2] + p1._p[2] + p2._p[2] + p3._p[2] ) / 4.0; 
     _infIdx = _pointNum - 1; 
 
     _pointVec.resize( _pointNum ); 
     _pointVec[ _infIdx ] = _ptInfty; 
     _vertFreeVec[ _infIdx ] = 0; 
+
+	if ( _params.verbose ) 
+		std::cout << "Kernel: " << _ptInfty._p[0] << " " << _ptInfty._p[1] << " " << _ptInfty._p[2] << std::endl; 
 
     _dPredWrapper.init( toKernelPtr( _pointVec ),
                           _pointNum, 
@@ -272,7 +327,8 @@ void GpuDel::constructInitialTetraFromPrev(const TetHVec &initTets)
                           _infIdx, 
                           PredTotalThreadNum );
     setPredWrapperConstant( _dPredWrapper );
-    
+
+    _vertSphereVec.copyFrom(_pointVec);
     // -------------------------------------------------------
     // (Re)initialize point location array: each point is located 
     // inside one of the tets.  We use the first tetrahedron from our

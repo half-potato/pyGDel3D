@@ -843,6 +843,9 @@ FlipItem*   flipArr
             continue; 
 
         const int vertex    = vertexArr._arr[ vertIdx ];
+
+        // if (vertex == dPredWrapper._infIdx) continue; // temporary
+
         int flag            = nextIdx & 1; 
         int destIdx         = nextIdx >> 1; 
 
@@ -858,6 +861,7 @@ FlipItem*   flipArr
                 F = make_int3( 0, 2, 3 ); 
             else
                 F = make_int3( 0, 1, 2 ); 
+
 
             const Orient ord0 = doFast 
                     ? dPredWrapper.doOrient3DFast( flipItem._v[ F.x ], flipItem._v[ F.y ], flipItem._v[ F.z ], vertex )

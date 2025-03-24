@@ -62,6 +62,7 @@ private:
 public: 
     DelaunayChecker( Point3HVec* pointVec, GDelOutput* output ); 
 
+    std::vector<int> getHullTets();
     void checkEuler();
     void checkAdjacency();
     void checkOrientation();

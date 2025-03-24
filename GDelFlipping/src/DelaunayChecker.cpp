@@ -413,3 +413,45 @@ bool DelaunayChecker::checkDelaunay( bool writeFile )
     return false;
 }
 
+std::vector<int> DelaunayChecker::getHullTets()
+{
+    // We’ll store the indices of all tetrahedra that are on the convex hull
+    std::vector<int> hullTets;
+    // hullTets.reserve(_output->tetVec.size()); // optional: just to avoid repeated reallocation
+
+    const TetHVec&   tetVec     = _output->tetVec;
+    const TetOppHVec& oppVec    = _output->tetOppVec;
+    const CharHVec&  tetInfoVec = _output->tetInfoVec;
+
+    // For each tetrahedron, check whether it's alive
+    // and whether it has a face with no neighbor.
+    for (int ti0 = 0; ti0 < (int)tetVec.size(); ++ti0)
+    {
+        // Skip "dead" or "deleted" tets
+        if (!isTetAlive(tetInfoVec[ti0])) {
+            hullTets.push_back(ti0);
+            continue;
+        }
+
+        // Get references for convenience
+        const TetOpp& opp0 = oppVec[ti0];
+
+        // If any face has no neighbor, that face is a boundary face -> on the hull
+        bool isOnHull = false;
+        for (int vi = 0; vi < 4; ++vi)
+        {
+            if (opp0._t[vi] == -1) // No neighbor on this face
+            {
+                isOnHull = true;
+                break;
+            }
+        }
+
+        if (isOnHull)
+        {
+            hullTets.push_back(ti0);
+        }
+    }
+
+    return hullTets;
+}
