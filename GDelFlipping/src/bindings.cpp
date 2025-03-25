@@ -123,7 +123,7 @@ PyGPUDel::computeUsingPrev(torch::Tensor &points, PyGDelOutput &prevOutput) {
     triangulator.doFlippingLoop( SphereFastOrientFast ); 
 
     triangulator.markSpecialTets(); 
-    // triangulator.doFlippingLoop( SphereExactOrientSoS ); 
+    triangulator.doFlippingLoop( SphereExactOrientSoS ); 
 
     triangulator.relocateAll(); 
     triangulator.outputToHost(); 

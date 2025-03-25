@@ -415,41 +415,54 @@ bool DelaunayChecker::checkDelaunay( bool writeFile )
 
 std::vector<int> DelaunayChecker::getHullTets()
 {
-    // We’ll store the indices of all tetrahedra that are on the convex hull
     std::vector<int> hullTets;
-    // hullTets.reserve(_output->tetVec.size()); // optional: just to avoid repeated reallocation
-
     const TetHVec&   tetVec     = _output->tetVec;
     const TetOppHVec& oppVec    = _output->tetOppVec;
     const CharHVec&  tetInfoVec = _output->tetInfoVec;
 
-    // For each tetrahedron, check whether it's alive
-    // and whether it has a face with no neighbor.
-    for (int ti0 = 0; ti0 < (int)tetVec.size(); ++ti0)
+    // 1) Create a bool vector to mark which tets contain the infinite vertex.
+    std::vector<bool> exteriorTets(tetVec.size(), false);
+
+    // First pass: identify exterior tets, i.e. tets that contain the infinite vertex.
+    for (int ti = 0; ti < (int)tetVec.size(); ++ti)
     {
-        // Skip "dead" or "deleted" tets
-        if (!isTetAlive(tetInfoVec[ti0])) {
-            hullTets.push_back(ti0);
+        // If this tet has the infinite vertex, mark it
+        if (tetVec[ti].has(_predWrapper._infIdx)) {
+            exteriorTets[ti] = true;
+            // hullTets.push_back(ti);
+        }
+    }
+
+    // 2) In a second pass, examine each tet; check if it’s adjacent to an exterior tet.
+    for (int ti = 0; ti < (int)tetVec.size(); ++ti)
+    {
+        // Optionally skip dead or deleted tets
+        if (!isTetAlive(tetInfoVec[ti])) {
             continue;
         }
 
-        // Get references for convenience
-        const TetOpp& opp0 = oppVec[ti0];
+        // Retrieve the opposite-tet structure for this tetrahedron
+        const TetOpp& opp = oppVec[ti];
 
-        // If any face has no neighbor, that face is a boundary face -> on the hull
-        bool isOnHull = false;
-        for (int vi = 0; vi < 4; ++vi)
+        // We'll scan each face (or each “opposite-tet ID”) to see if one is marked exterior
+        bool hasExteriorNeighbor = false;
+        for (int faceIdx = 0; faceIdx < 4; ++faceIdx)
         {
-            if (opp0._t[vi] == -1) // No neighbor on this face
-            {
-                isOnHull = true;
+            // Get the ID of the tet opposite this face
+            int oppTetId = opp.getOppTet(faceIdx);
+
+            // If that neighboring tet is marked as exterior, record and break
+            if (exteriorTets[oppTetId]) {
+                hasExteriorNeighbor = true;
                 break;
             }
         }
 
-        if (isOnHull)
-        {
-            hullTets.push_back(ti0);
+        // Now ‘hasExteriorNeighbor’ tells you if this tetrahedron
+        // has an adjacent neighbor that’s exterior.
+        // You can use this however you like (e.g. push to hullTets, etc.)
+        if (hasExteriorNeighbor) {
+            hullTets.push_back(ti);
         }
     }
 

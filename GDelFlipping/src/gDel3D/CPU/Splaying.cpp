@@ -444,7 +444,6 @@ void Splaying::processQue()
 
 void Splaying::checkStarConsistency()
 {
-    std::cout << "\nChecking for star consistency...\n"; 
     for ( int fromVert = 0; fromVert < ( int ) _starVec.size(); ++fromVert )
     {
         const Star* star = _starVec[ fromVert ];
@@ -676,7 +675,7 @@ void Splaying::fixWithStarSplaying(
     {
         makeFailedStarsAndQueue( output->failVertVec );
         processQue();
-        //checkStarConsistency();
+        // checkStarConsistency();
         starsToTetra();
     }
     timer.stop(); 

@@ -1,13 +1,18 @@
-cmake_minimum_required(VERSION 3.16)
-project(gflip3d CUDA CXX)
+cmake_minimum_required(VERSION 3.24)
 
-enable_language(CUDA)
+project(gflip3d LANGUAGES CUDA CXX)
+# link_directories(BEFORE ${CUDAToolkit_LIBRARY_DIR})
 find_package(CUDAToolkit REQUIRED)
 include_directories(${CUDAToolkit_INCLUDE_DIRS})
+
+
+enable_language(CUDA)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 option(USE_SINGLE_PRECISION "Use single precision floating point" OFF)
 set(CUDA_SEPARABLE_COMPILATION ON)
 
