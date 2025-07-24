@@ -1,0 +1,7 @@
+# MANIFEST.in
+
+# Include the main CMake build script at the project root
+include CMakeLists.txt
+
+# Recursively include the entire source code directory for the extension
+graft src/gdel3d

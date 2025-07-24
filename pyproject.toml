@@ -3,15 +3,12 @@ name = "gdel3d"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
     "torch>=2.7.1",
     "torchaudio>=2.7.1",
     "torchvision>=0.22.1",
 ]
-
-[tool.setuptools]
-packages = ["gdel3d"]
 
 [build-system]
 requires = [
@@ -19,6 +16,10 @@ requires = [
     "wheel",
     "pybind11>=2.10",
     "torch>=2.7.1",
-    "numpy"
+    "numpy",
+    "cmake>=3.24"
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"] # This assumes you've adopted the src-layout

@@ -52,47 +52,47 @@ find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
 
 # Include directories explicitly
 include_directories(
-    ${CMAKE_SOURCE_DIR}/GDelFlipping/Main
+    # ${CMAKE_SOURCE_DIR}/GDelFlipping/Main
     ${TORCH_INCLUDE_DIRS}
     ${TORCH_EXTENSION_INCLUDE} # PyTorch’s own PyBind11!
     ${Python3_INCLUDE_DIRS}
 )
 set(SOURCES
-    GDelFlipping/src/DelaunayChecker.cpp
-    GDelFlipping/src/InputCreator.cpp
-    GDelFlipping/src/RandGen.cpp
-    GDelFlipping/src/gDel3D/CPU/Splaying.cpp
-    GDelFlipping/src/gDel3D/CPU/Star.cpp
-    GDelFlipping/src/gDel3D/CPU/predicates.cpp
-    GDelFlipping/src/gDel3D/CPU/PredWrapper.cpp
+    src/gdel3d/DelaunayChecker.cpp
+    src/gdel3d/InputCreator.cpp
+    src/gdel3d/RandGen.cpp
+    src/gdel3d/gDel3D/CPU/Splaying.cpp
+    src/gdel3d/gDel3D/CPU/Star.cpp
+    src/gdel3d/gDel3D/CPU/predicates.cpp
+    src/gdel3d/gDel3D/CPU/PredWrapper.cpp
 )
 
 set(CUDA_SOURCES
-    GDelFlipping/src/gDel3D/GpuDelaunay.cu
-    GDelFlipping/src/gDel3D/GPU/KerDivision.cu
-    GDelFlipping/src/gDel3D/GPU/KerPredicates.cu
-    GDelFlipping/src/gDel3D/GPU/ThrustWrapper.cu
+    src/gdel3d/gDel3D/GpuDelaunay.cu
+    src/gdel3d/gDel3D/GPU/KerDivision.cu
+    src/gdel3d/gDel3D/GPU/KerPredicates.cu
+    src/gdel3d/gDel3D/GPU/ThrustWrapper.cu
 )
 set_source_files_properties(${CUDA_SOURCES} PROPERTIES LANGUAGE CUDA)
 
-# Create executable
-add_executable(${PROJECT_NAME}
-    GDelFlipping/src/Demo.cpp
-    ${SOURCES}
-    ${CUDA_SOURCES}
-)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${TORCH_LIBRARIES} ${Python3_LIBRARIES})
+# # Create executable
+# add_executable(${PROJECT_NAME}
+#     src/gdel3d/Demo.cpp
+#     ${SOURCES}
+#     ${CUDA_SOURCES}
+# )
+# target_link_libraries(${PROJECT_NAME} PRIVATE ${TORCH_LIBRARIES} ${Python3_LIBRARIES})
 
 # PyBind11 module using PyTorch’s built-in headers
-add_library(gdel3d.so MODULE
-    GDelFlipping/src/bindings.cpp
+add_library(gdel3d._internal.so MODULE
+    src/gdel3d/bindings.cpp
     ${SOURCES}
     ${CUDA_SOURCES}
 )
-target_link_libraries(gdel3d.so PRIVATE ${TORCH_LIBRARIES} ${Python3_LIBRARIES} ${TORCH_PYTHON_LIB})
+target_link_libraries(gdel3d._internal.so PRIVATE ${TORCH_LIBRARIES} ${Python3_LIBRARIES} ${TORCH_PYTHON_LIB})
 
 # Ensure proper naming (required by Python)
-set_target_properties(gdel3d.so PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}"
+set_target_properties(gdel3d._internal.so PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}"
                                         SUFFIX "${PYTHON_MODULE_EXTENSION}")
 
 # Configure precision option
