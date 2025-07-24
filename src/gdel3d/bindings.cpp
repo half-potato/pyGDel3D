@@ -191,7 +191,7 @@ PyGPUDel::compute(torch::Tensor &points) {
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(gdel3d, m) {
+PYBIND11_MODULE(_internal, m) {
     m.doc() = "Python bindings for gdel3d";
     py::class_<PyGDelOutput>(m, "DelOutput")
         .def("check_correctness", &PyGDelOutput::checkCorrectness)

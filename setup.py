@@ -1,59 +1,74 @@
-# setup.py
 import os
-import pathlib
-import subprocess
 import sys
-import shutil
+import glob
+from setuptools import setup
+import torch
+from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
-from setuptools import Extension, setup
-from setuptools.command.build_ext import build_ext
+# --- 1. File Discovery ---
+# Automatically find all C++ and CUDA source files in your src directory
+source_dir = "src/gdel3d"
+cpp_sources = glob.glob(os.path.join(source_dir, "**/*.cpp"), recursive=True)
+cuda_sources = glob.glob(os.path.join(source_dir, "**/*.cu"), recursive=True)
+all_sources = cpp_sources + cuda_sources
 
-import torch.utils
+# --- 2. Base Compiler Arguments ---
+cxx_args = ["-O3", "-std=c++17"]
+nvcc_args = ["-O3", "--use_fast_math", "-std=c++17"]
 
-class CMakeExtension(Extension):
-    def __init__(self, name: str, sourcedir: str = "") -> None:
-        super().__init__(name, sources=[])
-        self.sourcedir = os.fspath(pathlib.Path(sourcedir).resolve())
+# --- 3. Implement CMakeLists.txt Features ---
+
+# a) ABI Matching (replicates add_definitions(-D_GLIBCXX_USE_CXX11_ABI=...))
+abi_flag = f"-D_GLIBCXX_USE_CXX11_ABI={int(torch._C._GLIBCXX_USE_CXX11_ABI)}"
+cxx_args.append(abi_flag)
+# nvcc's host compiler will also use this flag
+nvcc_args.append(abi_flag) 
+
+# b) F32 / F64 Precision Flag (replicates option(USE_SINGLE_PRECISION ...))
+if os.environ.get("USE_SINGLE_PRECISION", "0") == "1":
+    print("Building with single precision (32-bit)")
+    fp_flag = "-DREAL_TYPE_FP32"
+    cxx_args.append(fp_flag)
+    nvcc_args.append(fp_flag)
+else:
+    print("Building with double precision (64-bit)")
 
 
-class CMakeBuild(build_ext):
-    def build_extension(self, ext: CMakeExtension) -> None:
-        cfg = "Debug" if self.debug else "Release"
-        cmake_prefix_path = torch.utils.cmake_prefix_path
+# --- 4. GPU Architecture Detection (from your example) ---
+# Default fallback architectures
+fallback_archs = ["-gencode=arch=compute_89,code=sm_89"]
 
-        cmake_configure_cmd = [
-            "cmake",
-            "-S", ext.sourcedir,
-            "-B", self.build_temp,
-            f"-DCMAKE_PREFIX_PATH={cmake_prefix_path}",
-            f"-DPYTHON_EXECUTABLE={sys.executable}",
-            f"-DCMAKE_BUILD_TYPE={cfg}",
-        ]
-        
-        cmake_build_cmd = ["cmake", "--build", self.build_temp, "--config", cfg]
+if torch.cuda.is_available():
+    try:
+        device = torch.cuda.current_device()
+        major, minor = torch.cuda.get_device_capability(device)
+        arch_flag = f"-gencode=arch=compute_{major}{minor},code=sm_{major}{minor}"
+        print(f"Detected GPU sm_{major}{minor}, using build flag: {arch_flag}")
+        nvcc_args.append(arch_flag)
+    except Exception as e:
+        print(f"Failed to detect GPU, falling back to default archs. Error: {e}")
+        nvcc_args.extend(fallback_archs)
+else:
+    print("CUDA not available, falling back to default archs.")
+    nvcc_args.extend(fallback_archs)
 
-        print("Configuring CMake...")
-        subprocess.run(cmake_configure_cmd, check=True)
-        print("Building extension with CMake...")
-        subprocess.run(cmake_build_cmd, check=True)
 
-        # --- THIS IS THE ONLY LINE THAT CHANGED ---
-        # Recursively search for the compiled library file (`**/*.so`)
-        compiled_lib_path = list(pathlib.Path(self.build_temp).glob("**/*.so"))
-        
-        if not compiled_lib_path:
-            raise RuntimeError("Could not find compiled .so file after build!")
-        
-        compiled_lib_path = compiled_lib_path[0]
-        dest_path = pathlib.Path(self.get_ext_fullpath(ext.name))
-        
-        print(f"Found compiled library: {compiled_lib_path}")
-        print(f"Moving to destination: {dest_path}")
-        
-        dest_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(compiled_lib_path), str(dest_path))
-
+# --- 5. The Main Setup Call ---
 setup(
-    ext_modules=[CMakeExtension("gdel3d._internal")],
-    cmdclass={"build_ext": CMakeBuild},
+    name="gdel3d",
+    packages=['gdel3d'],
+    package_dir={'': 'src'}, # Important for src-layout
+    ext_modules=[
+        CUDAExtension(
+            name="gdel3d._internal", # The name of the compiled module
+            sources=all_sources,
+            extra_compile_args={
+                "cxx": cxx_args,
+                "nvcc": nvcc_args
+            }
+        )
+    ],
+    cmdclass={
+        'build_ext': BuildExtension
+    }
 )
