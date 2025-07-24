@@ -2,6 +2,7 @@
 #include <pybind11/numpy.h>
 #include <torch/extension.h>
 
+#include "gDel3D/CommonTypes.h"
 #include "gDel3D/GpuDelaunay.h"
 #include "DelaunayChecker.h"
 #include "InputCreator.h"
@@ -76,7 +77,7 @@ class PyGPUDel {
   public:
     GpuDel triangulator; 
 
-    PyGPUDel(int N) : triangulator(GDelParams(false, false, false, false)) {
+    PyGPUDel(int N) : triangulator(GDelParams(false, false, false, false, InsertionRule::InsCentroid)) {
         CudaSafeCall( cudaDeviceSetCacheConfig( cudaFuncCachePreferL1 ) );
         triangulator.allocateForFlip(N + 1); // point at infinity
     }

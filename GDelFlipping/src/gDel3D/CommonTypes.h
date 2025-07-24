@@ -73,12 +73,11 @@ DAMAGE.
 #include <thrust/transform_scan.h>
 #include <thrust/unique.h>
 
-// #ifdef REAL_TYPE_FP32
-// typedef float RealType;
-// #else
-// typedef double RealType;
-// #endif
+#ifdef REAL_TYPE_FP32
 typedef float RealType;
+#else
+typedef double RealType;
+#endif
 
 typedef unsigned char uchar;
 
