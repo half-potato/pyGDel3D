@@ -5,17 +5,16 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "torch>=2.7.1",
-    "torchaudio>=2.7.1",
-    "torchvision>=0.22.1",
+    "torch>=2.2",
+    "torchaudio>=2.2",
+    "torchvision>=0.19",
 ]
 
 [build-system]
 requires = [
-    "setuptools>=61.0",
+    "setuptools>=51.0",
     "wheel",
-    "pybind11>=2.10",
-    "torch>=2.7.1",
+    "pybind11>=2",
     "numpy",
     "cmake>=3.24"
 ]
