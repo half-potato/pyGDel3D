@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <iomanip>
 
 #include "gDel3D/CommonTypes.h"
 #include "gDel3D/GpuDelaunay.h"
@@ -146,10 +147,14 @@ PyGPUDel::computeUsingPrev(py::array_t<RealType> points, PyGDelOutput &prevOutpu
 
     // Create numpy array and copy data
     size_t num_tets = pyOutput.output.tetVec.size();
-    py::array_t<int> result({num_tets, 4});
+    py::array_t<int> result(std::vector<py::ssize_t>{static_cast<py::ssize_t>(num_tets), 4});
     py::buffer_info result_buf = result.request();
     int* result_ptr = static_cast<int*>(result_buf.ptr);
-    std::copy(pyOutput.output.tetVec.begin(), pyOutput.output.tetVec.end(), result_ptr);
+    for (size_t i = 0; i < num_tets; i++) {
+        for (int j = 0; j < 4; j++) {
+            result_ptr[i * 4 + j] = pyOutput.output.tetVec[i]._v[j];
+        }
+    }
 
     return std::make_tuple(result, pyOutput);
 }
@@ -186,10 +191,14 @@ PyGPUDel::compute(py::array_t<RealType> points) {
     // summarize( size, output );
     // Create numpy array and copy data
     size_t num_tets = pyOutput.output.tetVec.size();
-    py::array_t<int> result({num_tets, 4});
+    py::array_t<int> result(std::vector<py::ssize_t>{static_cast<py::ssize_t>(num_tets), 4});
     py::buffer_info result_buf = result.request();
     int* result_ptr = static_cast<int*>(result_buf.ptr);
-    std::copy(pyOutput.output.tetVec.begin(), pyOutput.output.tetVec.end(), result_ptr);
+    for (size_t i = 0; i < num_tets; i++) {
+        for (int j = 0; j < 4; j++) {
+            result_ptr[i * 4 + j] = pyOutput.output.tetVec[i]._v[j];
+        }
+    }
 
     return std::make_tuple(result, pyOutput);
 }
