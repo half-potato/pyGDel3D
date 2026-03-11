@@ -1,6 +1,5 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
-#include <torch/extension.h>
 
 #include "gDel3D/CommonTypes.h"
 #include "gDel3D/GpuDelaunay.h"
@@ -35,38 +34,51 @@ void summarize( int pointNum, const GDelOutput& output )
     std::cout << "# Final stars  " << std::setw( 10 ) << output.stats.finalStarNum << std::endl; 
 }
 
+namespace py = pybind11;
+
 class PyGDelOutput {
     public:
-        GDelOutput   output; 
-        bool checkCorrectness(torch::Tensor &points);
-        torch::Tensor computePointImportance(torch::Tensor &points);
-        torch::Tensor getBoundaryTets(torch::Tensor &points);
+        GDelOutput   output;
+        bool checkCorrectness(py::array_t<RealType> points);
+        py::array_t<int> getBoundaryTets(py::array_t<RealType> points);
 };
-torch::Tensor PyGDelOutput::getBoundaryTets(torch::Tensor &points) {
-    const Point3* dataPtr = reinterpret_cast<const Point3*>(points.data_ptr());
-    
-    int64_t size = points.size(0);
+py::array_t<int> PyGDelOutput::getBoundaryTets(py::array_t<RealType> points) {
+    py::buffer_info buf = points.request();
+
+    if (buf.ndim != 2 || buf.shape[1] != 3) {
+        throw std::runtime_error("points must be a Nx3 array");
+    }
+
+    const Point3* dataPtr = reinterpret_cast<const Point3*>(buf.ptr);
+    int64_t size = buf.shape[0];
 
     // Create a Thrust host vector
     Point3HVec pointVec(dataPtr, dataPtr + size);
-    DelaunayChecker checker( &pointVec,  &output ); 
+    DelaunayChecker checker( &pointVec,  &output );
     std::vector<int> vec = checker.getHullTets();
-    torch::Tensor output_tensor = torch::from_blob(
-        reinterpret_cast<int*>(vec.data()), 
-        {static_cast<long>(vec.size())},
-        torch::TensorOptions().dtype(torch::kInt32)
-    );
-    return output_tensor.clone();
+
+    // Create numpy array and copy data
+    py::array_t<int> result(vec.size());
+    py::buffer_info result_buf = result.request();
+    int* result_ptr = static_cast<int*>(result_buf.ptr);
+    std::copy(vec.begin(), vec.end(), result_ptr);
+
+    return result;
 }
 
-bool PyGDelOutput::checkCorrectness(torch::Tensor &points) {
-    const Point3* dataPtr = reinterpret_cast<const Point3*>(points.data_ptr());
-    
-    int64_t size = points.size(0);
+bool PyGDelOutput::checkCorrectness(py::array_t<RealType> points) {
+    py::buffer_info buf = points.request();
+
+    if (buf.ndim != 2 || buf.shape[1] != 3) {
+        throw std::runtime_error("points must be a Nx3 array");
+    }
+
+    const Point3* dataPtr = reinterpret_cast<const Point3*>(buf.ptr);
+    int64_t size = buf.shape[0];
 
     // Create a Thrust host vector
     Point3HVec pointVec(dataPtr, dataPtr + size);
-    DelaunayChecker checker( &pointVec,  &output ); 
+    DelaunayChecker checker( &pointVec,  &output );
     checker.checkEuler();
     checker.checkAdjacency();
     checker.checkOrientation();
@@ -75,44 +87,39 @@ bool PyGDelOutput::checkCorrectness(torch::Tensor &points) {
 
 class PyGPUDel {
   public:
-    GpuDel triangulator; 
+    GpuDel triangulator;
 
     PyGPUDel(int N) : triangulator(GDelParams(false, false, false, false, InsertionRule::InsCentroid)) {
         CudaSafeCall( cudaDeviceSetCacheConfig( cudaFuncCachePreferL1 ) );
         triangulator.allocateForFlip(N + 1); // point at infinity
     }
-    std::tuple<torch::Tensor, PyGDelOutput> compute(torch::Tensor &points);
-    std::tuple<torch::Tensor, PyGDelOutput> computeUsingPrev(torch::Tensor &points, PyGDelOutput &prevOutput);
+    std::tuple<py::array_t<int>, PyGDelOutput> compute(py::array_t<RealType> points);
+    std::tuple<py::array_t<int>, PyGDelOutput> computeUsingPrev(py::array_t<RealType> points, PyGDelOutput &prevOutput);
     ~PyGPUDel() {
         triangulator.cleanup();
     }
 };
 
-std::tuple<torch::Tensor, PyGDelOutput>
-PyGPUDel::computeUsingPrev(torch::Tensor &points, PyGDelOutput &prevOutput) {
-    points = points.cpu().contiguous();
-    assert(points.dim() == 2 && points.size(1) == 3);
-    // Then match points type with RealType
-    if (sizeof(RealType) == 8 && points.scalar_type() != torch::kFloat64) {
-        throw std::runtime_error("points must be float64 when RealType is double");
-    }
-    if (sizeof(RealType) == 4 && points.scalar_type() != torch::kFloat32) {
-        throw std::runtime_error("points must be float32 when RealType is float");
+std::tuple<py::array_t<int>, PyGDelOutput>
+PyGPUDel::computeUsingPrev(py::array_t<RealType> points, PyGDelOutput &prevOutput) {
+    py::buffer_info buf = points.request();
+
+    if (buf.ndim != 2 || buf.shape[1] != 3) {
+        throw std::runtime_error("points must be a Nx3 array");
     }
 
     // Access the underlying data pointer and size
-    const Point3* dataPtr = reinterpret_cast<const Point3*>(points.data_ptr());
-    
-    int64_t size = points.size(0);
+    const Point3* dataPtr = reinterpret_cast<const Point3*>(buf.ptr);
+    int64_t size = buf.shape[0];
 
     // Create a Thrust host vector
     Point3HVec pointVec(dataPtr, dataPtr + size);
 
-    PerfTimer timer; 
+    PerfTimer timer;
 
     PyGDelOutput pyOutput;
-    timer.start(); 
-    triangulator.startTiming(); 
+    timer.start();
+    triangulator.startTiming();
     triangulator._output = &pyOutput.output;
     triangulator.initForFlip( pointVec, &prevOutput.output.tetVec );
     // Restore variables
@@ -121,46 +128,43 @@ PyGPUDel::computeUsingPrev(torch::Tensor &points, PyGDelOutput &prevOutput) {
 
 
     // triangulator.splitAndFlip();
-    triangulator.doFlippingLoop( SphereFastOrientFast ); 
+    triangulator.doFlippingLoop( SphereFastOrientFast );
 
-    triangulator.markSpecialTets(); 
-    triangulator.doFlippingLoop( SphereExactOrientSoS ); 
+    triangulator.markSpecialTets();
+    triangulator.doFlippingLoop( SphereExactOrientSoS );
 
-    triangulator.relocateAll(); 
-    triangulator.outputToHost(); 
+    triangulator.relocateAll();
+    triangulator.outputToHost();
 
     for (int i=0; i<pyOutput.output.failVertVec.size(); i++) {
         printf("%i, ", pyOutput.output.failVertVec[i]);
     }
     printf("\n");
     triangulator._splaying.fixWithStarSplaying( pointVec, &pyOutput.output );
-    timer.stop(); 
-    triangulator._output->stats.totalTime = timer.value(); 
+    timer.stop();
+    triangulator._output->stats.totalTime = timer.value();
 
-    torch::Tensor output_tensor = torch::from_blob(
-        reinterpret_cast<int*>(pyOutput.output.tetVec.data()), 
-        {static_cast<long>(pyOutput.output.tetVec.size()), 4},
-        torch::TensorOptions().dtype(torch::kInt32)
-    );
-    return std::make_tuple(output_tensor.clone(), pyOutput);
+    // Create numpy array and copy data
+    size_t num_tets = pyOutput.output.tetVec.size();
+    py::array_t<int> result({num_tets, 4});
+    py::buffer_info result_buf = result.request();
+    int* result_ptr = static_cast<int*>(result_buf.ptr);
+    std::copy(pyOutput.output.tetVec.begin(), pyOutput.output.tetVec.end(), result_ptr);
+
+    return std::make_tuple(result, pyOutput);
 }
 
-std::tuple<torch::Tensor, PyGDelOutput>
-PyGPUDel::compute(torch::Tensor &points) {
-    points = points.cpu().contiguous();
-    assert(points.dim() == 2 && points.size(1) == 3);
-    // Then match points type with RealType
-    if (sizeof(RealType) == 8 && points.scalar_type() != torch::kFloat64) {
-        throw std::runtime_error("points must be float64 when RealType is double");
-    }
-    if (sizeof(RealType) == 4 && points.scalar_type() != torch::kFloat32) {
-        throw std::runtime_error("points must be float32 when RealType is float");
+std::tuple<py::array_t<int>, PyGDelOutput>
+PyGPUDel::compute(py::array_t<RealType> points) {
+    py::buffer_info buf = points.request();
+
+    if (buf.ndim != 2 || buf.shape[1] != 3) {
+        throw std::runtime_error("points must be a Nx3 array");
     }
 
     // Access the underlying data pointer and size
-    const Point3* dataPtr = reinterpret_cast<const Point3*>(points.data_ptr());
-    
-    int64_t size = points.size(0);
+    const Point3* dataPtr = reinterpret_cast<const Point3*>(buf.ptr);
+    int64_t size = buf.shape[0];
 
     // Create a Thrust host vector
     Point3HVec pointVec(dataPtr, dataPtr + size);
@@ -168,28 +172,28 @@ PyGPUDel::compute(torch::Tensor &points) {
 
     // triangulator.compute( pointVec, &pyOutput.output );
 
-    PerfTimer timer; 
-    timer.start(); 
-    triangulator.startTiming(); 
+    PerfTimer timer;
+    timer.start();
+    triangulator.startTiming();
     triangulator._output = &pyOutput.output;
     triangulator.initForFlip( pointVec );
     triangulator.splitAndFlip();
-    triangulator.outputToHost(); 
+    triangulator.outputToHost();
     triangulator._splaying.fixWithStarSplaying( pointVec, &pyOutput.output );
-    timer.stop(); 
-    triangulator._output->stats.totalTime = timer.value(); 
+    timer.stop();
+    triangulator._output->stats.totalTime = timer.value();
 
-    // summarize( size, output ); 
-    torch::Tensor output_tensor = torch::from_blob(
-        reinterpret_cast<int*>(pyOutput.output.tetVec.data()), 
-        {static_cast<long>(pyOutput.output.tetVec.size()), 4},
-        torch::TensorOptions().dtype(torch::kInt32)
-    );
-    return std::make_tuple(output_tensor.clone(), pyOutput);
+    // summarize( size, output );
+    // Create numpy array and copy data
+    size_t num_tets = pyOutput.output.tetVec.size();
+    py::array_t<int> result({num_tets, 4});
+    py::buffer_info result_buf = result.request();
+    int* result_ptr = static_cast<int*>(result_buf.ptr);
+    std::copy(pyOutput.output.tetVec.begin(), pyOutput.output.tetVec.end(), result_ptr);
+
+    return std::make_tuple(result, pyOutput);
 }
 
-
-namespace py = pybind11;
 
 PYBIND11_MODULE(_internal, m) {
     m.doc() = "Python bindings for gdel3d";
