@@ -62,6 +62,9 @@ setup(
         CUDAExtension(
             name="gdel3d._internal", # The name of the compiled module
             sources=all_sources,
+            include_dirs=[
+                "/opt/cuda/targets/x86_64-linux/include/cccl"
+            ],
             extra_compile_args={
                 "cxx": cxx_args,
                 "nvcc": nvcc_args
